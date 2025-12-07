@@ -13,6 +13,8 @@
 - [데이터베이스 설정](#데이터베이스-설정)
 - [API 문서](#api-문서)
 - [배포 가이드](#배포-가이드)
+- [HTTPS 설정](#https-설정)
+- [문제 해결](#문제-해결)
 
 ---
 
@@ -200,8 +202,7 @@ med/
 │   │   ├── application.properties
 │   │   ├── application-prod.properties
 │   │   └── db/
-│   │       ├── schema.sql    # 데이터베이스 스키마
-│   │       └── README.md
+│   │       └── schema.sql    # 데이터베이스 스키마
 │   └── build.gradle
 │
 └── medPY/                    # 분석 서비스 (Python FastAPI)
@@ -256,9 +257,21 @@ GRANT ALL PRIVILEGES ON DATABASE localMED_DB TO sxxm;
 \i medBE/src/main/resources/db/schema.sql
 ```
 
+또는 명령줄에서 직접 실행:
+
+```bash
+psql -U postgres -d localMED_DB -f medBE/src/main/resources/db/schema.sql
+```
+
 #### AWS RDS 사용
 
 `medBE/src/main/resources/application.properties`에서 RDS 설정 주석을 해제하고 로컬 설정을 주석 처리하세요.
+
+환경 변수 설정:
+```bash
+export med_DB_USERNAME=your_rds_username
+export med_DB_PASSWORD=your_rds_password
+```
 
 ### 2. Python 분석 서비스 실행
 
@@ -287,16 +300,24 @@ uvicorn app.main:app --reload --port 8000
 
 Python 서비스는 `http://localhost:8000`에서 실행됩니다.
 
+**FastAPI 문서**:
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
+
 ### 3. 백엔드 실행
 
 ```bash
 cd medBE
 
-# 환경 변수 설정
+# 환경 변수 설정 (필수)
 export JWT_SECRET=your_jwt_secret_key_minimum_256_bits
 export OPENAI_API_KEY=your_openai_api_key
 export GOOGLE_APPLICATION_CREDENTIALS=/path/to/google-credentials.json
 export PYTHON_API_URL=http://localhost:8000
+
+# 데이터베이스 환경 변수 (RDS 사용 시)
+export med_DB_USERNAME=your_rds_username
+export med_DB_PASSWORD=your_rds_password
 
 # Gradle로 실행
 ./gradlew bootRun
@@ -307,6 +328,10 @@ java -jar build/libs/med-0.0.1-SNAPSHOT.jar
 ```
 
 백엔드는 `http://localhost:8080`에서 실행됩니다.
+
+**API 문서**:
+- Swagger UI: http://localhost:8080/swagger-ui.html
+- OpenAPI JSON: http://localhost:8080/v3/api-docs
 
 ### 4. 프론트엔드 실행
 
@@ -334,6 +359,7 @@ Vite 프록시 설정으로 인해 `/api` 요청은 자동으로 백엔드(`loca
 
 ```bash
 # JWT 시크릿 키 (최소 256비트 권장)
+# 생성 방법: openssl rand -base64 32
 JWT_SECRET=your_jwt_secret_key_minimum_256_bits_here
 
 # OpenAI GPT API
@@ -351,7 +377,7 @@ PYTHON_API_URL=http://localhost:8000
 #### 선택적 환경 변수
 
 ```bash
-# 데이터베이스 (로컬 사용 시 application.properties에서 직접 설정)
+# 데이터베이스 (로컬 사용 시 application.properties에서 직접 설정 가능)
 med_DB_USERNAME=sxxm
 med_DB_PASSWORD=sxxmpass
 
@@ -366,6 +392,46 @@ SERVER_PORT=8080
 CONTENT_VALIDATION_ENABLED=false
 ```
 
+#### 환경 변수 설정 방법
+
+**방법 1: 시스템 환경 변수 (로컬 개발)**
+```bash
+# Linux/macOS
+export JWT_SECRET=your_jwt_secret
+export OPENAI_API_KEY=your_openai_key
+# ... 기타 환경 변수
+
+# Windows (PowerShell)
+$env:JWT_SECRET="your_jwt_secret"
+$env:OPENAI_API_KEY="your_openai_key"
+```
+
+**방법 2: .env 파일 사용**
+```bash
+# .env 파일 생성
+cat > .env << EOF
+JWT_SECRET=your_jwt_secret
+OPENAI_API_KEY=your_openai_key
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/google-credentials.json
+PYTHON_API_URL=http://localhost:8000
+EOF
+
+# 환경 변수 로드하여 실행
+source .env
+./gradlew bootRun
+```
+
+**방법 3: Docker Compose**
+```yaml
+# docker-compose.yml
+services:
+  med-be:
+    environment:
+      - JWT_SECRET=${JWT_SECRET}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # ... 기타 환경 변수
+```
+
 ### 프론트엔드 환경 변수
 
 ```bash
@@ -374,6 +440,12 @@ VITE_API_BASE_URL=http://localhost:8080
 ```
 
 기본값은 `http://localhost:8080`이며, Vite 프록시를 사용하는 경우 빈 문자열로 설정할 수 있습니다.
+
+**Vercel 배포 시**:
+- Vercel 대시보드 → Settings → Environment Variables
+- `VITE_API_BASE_URL` 추가 (예: `https://api.yourdomain.com`)
+- 모든 환경(Production, Preview, Development)에 설정
+- 환경 변수 변경 후 재배포 필요
 
 ### Python 서비스 환경 변수
 
@@ -412,23 +484,41 @@ GPT_MODEL=gpt-4o-mini
    - id, user_id, description, analysis_result
    - created_at, updated_at
 
-4. **ocr_ingredients** - OCR 성분 분석 결과
+4. **side_effect_medications** - 부작용 약물 목록
+   - report_id, medication_name
+
+5. **ocr_ingredients** - OCR 성분 분석 결과
    - id, user_id, image_url, ocr_text, analysis_result
    - created_at, updated_at
 
-5. **posts** - 게시글
+6. **ocr_ingredient_list** - OCR 성분 목록
+   - ocr_id, ingredient_name
+
+7. **posts** - 게시글
    - id, author_id, title, content, category
    - created_at, updated_at
 
-6. **comments** - 댓글
+8. **comments** - 댓글
    - id, post_id, author_id, content
    - created_at
+
+9. **post_likes** - 게시글 좋아요
+   - post_id, user_id
+
+10. **comment_likes** - 댓글 좋아요
+    - comment_id, user_id
 
 ### 스키마 실행
 
 ```bash
 psql -U postgres -d localMED_DB -f medBE/src/main/resources/db/schema.sql
 ```
+
+### 인덱스 및 트리거
+
+- 성능 최적화를 위해 주요 컬럼에 인덱스가 생성됩니다
+- `updated_at` 컬럼이 자동으로 업데이트되도록 트리거가 설정되어 있습니다
+- 외래키 제약조건에 CASCADE 삭제가 설정되어 있어 사용자 삭제 시 관련 데이터가 함께 삭제됩니다
 
 ---
 
@@ -502,46 +592,139 @@ FastAPI 자동 생성 문서:
 
 #### 백엔드 배포
 
-1. **AWS RDS 설정**
+**1. AWS RDS 설정**
    - `application.properties`에서 RDS 설정 주석 해제
    - 환경 변수 설정: `med_DB_USERNAME`, `med_DB_PASSWORD`
 
-2. **Docker 배포**
+**2. Docker 배포**
    ```bash
    cd medBE
    docker build -t med-backend .
    docker run -p 8080:8080 --env-file .env med-backend
    ```
 
-3. **AWS Elastic Beanstalk / ECS**
+**3. AWS Elastic Beanstalk / ECS**
    - 환경 변수를 플랫폼에 설정
    - Docker 이미지 또는 JAR 파일 배포
 
-#### 프론트엔드 배포
+#### 프론트엔드 배포 (Vercel)
 
-1. **Vercel 배포**
+**1. Vercel 웹 대시보드 사용 (권장)**
+   - https://vercel.com 접속
+   - GitHub 계정으로 로그인
+   - "Add New..." → "Project" 클릭
+   - GitHub 저장소 선택 및 Import
+   - 프로젝트 설정:
+     - Framework Preset: Vite (자동 감지)
+     - Root Directory: `./medFE`
+     - Build Command: `npm run build`
+     - Output Directory: `dist`
+   - 환경 변수 설정:
+     - `VITE_API_BASE_URL`: 백엔드 API URL (예: `https://api.yourdomain.com`)
+   - "Deploy" 버튼 클릭
+
+**2. Vercel CLI 사용**
    ```bash
    cd medFE
-   npm run build
-   vercel deploy
+   npm i -g vercel
+   vercel login
+   vercel
+   vercel --prod
    ```
 
-2. **환경 변수 설정**
-   - Vercel 대시보드에서 환경 변수 설정
-   - `VITE_API_BASE_URL` 설정
+**3. 환경 변수 설정**
+   - Vercel 대시보드 → Settings → Environment Variables
+   - `VITE_API_BASE_URL` 추가
+   - 모든 환경(Production, Preview, Development)에 설정
+   - 환경 변수 변경 후 재배포 필요
 
 #### Python 서비스 배포
 
-1. **Docker 배포**
+**1. Docker 배포**
    ```bash
    cd medPY
    docker build -t med-python .
    docker run -p 8000:8000 --env-file .env med-python
    ```
 
-2. **클라우드 서비스**
+**2. 클라우드 서비스**
    - AWS ECS, Google Cloud Run 등에 배포
    - 환경 변수 설정 필수
+
+---
+
+## HTTPS 설정
+
+프로덕션 환경에서 HTTPS를 설정하여 Mixed Content 문제를 해결할 수 있습니다.
+
+### 사전 요구사항
+
+- EC2 서버에 접근 권한
+- 도메인 (권장) 또는 IP 주소
+- 포트 80, 443이 열려 있어야 함 (AWS Security Group 설정)
+
+### 도메인이 있는 경우 (권장)
+
+**1. 도메인 DNS 설정**
+   ```
+   A 레코드: api.yourdomain.com -> EC2_IP_ADDRESS
+   ```
+
+**2. SSL 인증서 발급**
+   ```bash
+   cd medBE
+   ./scripts/setup-ssl.sh api.yourdomain.com your-email@example.com
+   ```
+
+**3. Nginx 설정 업데이트**
+   - `nginx/nginx.conf` 파일에서 `server_name` 수정
+
+**4. Docker Compose 재시작**
+   ```bash
+   cd ~/med
+   docker-compose down
+   docker-compose up -d --build
+   ```
+
+**5. 인증서 자동 갱신 설정**
+   ```bash
+   # Crontab에 자동 갱신 추가
+   sudo crontab -e
+   # 다음 줄 추가 (매일 자정에 갱신 확인)
+   0 0 * * * certbot renew --quiet && cd ~/med && docker-compose restart nginx
+   ```
+
+### 도메인이 없는 경우 (임시)
+
+자체 서명 인증서를 사용할 수 있지만, 브라우저에서 보안 경고가 표시됩니다.
+
+```bash
+cd medBE
+./scripts/setup-ssl.sh
+```
+
+⚠️ **주의**: 자체 서명 인증서는 프로덕션 환경에서 사용하지 마세요.
+
+### 프론트엔드 환경 변수 업데이트
+
+Vercel 대시보드에서 환경 변수 설정:
+```
+VITE_API_BASE_URL=https://api.yourdomain.com
+```
+
+프론트엔드 재배포 후 테스트하세요.
+
+### 아키텍처
+
+```
+인터넷
+  │
+  ├─ HTTPS (443) ──> Nginx (리버스 프록시)
+  │                      │
+  │                      └─> HTTP (8080) ──> Spring Boot
+  │
+  └─ HTTP (80) ──> Nginx ──> HTTPS로 리다이렉트
+```
 
 ---
 
@@ -549,26 +732,71 @@ FastAPI 자동 생성 문서:
 
 ### CORS 에러
 
+**증상**: 브라우저 콘솔에 CORS 관련 에러 메시지
+
+**해결책**:
 - `CorsConfig.java`에서 로컬 도메인이 올바르게 허용되어 있는지 확인
 - 프론트엔드가 `localhost:3000`에서 실행 중인지 확인
+- 프로덕션 환경에서는 Vercel 도메인을 CORS 허용 목록에 추가
 
 ### 데이터베이스 연결 실패
 
+**증상**: 백엔드 시작 시 데이터베이스 연결 오류
+
+**해결책**:
 - PostgreSQL이 실행 중인지 확인
 - `application.properties`의 데이터베이스 URL 확인
 - 환경 변수 `med_DB_USERNAME`, `med_DB_PASSWORD` 확인
+- AWS RDS 사용 시 Security Group 설정 확인
 
 ### API 프록시가 작동하지 않음
 
+**증상**: 프론트엔드에서 API 요청이 실패
+
+**해결책**:
 - Vite 개발 서버가 실행 중인지 확인
 - `vite.config.ts`의 프록시 설정 확인
 - 브라우저 콘솔에서 에러 메시지 확인
+- 환경 변수 `VITE_API_BASE_URL` 확인
 
 ### Python 서비스 연결 실패
 
+**증상**: 백엔드에서 Python 서비스 호출 실패
+
+**해결책**:
 - Python 서비스가 `localhost:8000`에서 실행 중인지 확인
 - 환경 변수 `PYTHON_API_URL` 확인
 - Python 서비스 로그 확인
+- 네트워크 연결 확인
+
+### JWT 토큰 만료
+
+**증상**: 로그인 후 일정 시간 후 자동 로그아웃
+
+**해결책**:
+- JWT 토큰 만료 시간 확인
+- 토큰 갱신 로직 구현 (선택적)
+- 로그인 상태 유지를 위한 토큰 저장 확인
+
+### Mixed Content 경고
+
+**증상**: HTTPS 페이지에서 HTTP API 호출 시 브라우저 차단
+
+**해결책**:
+- 백엔드 서버에 HTTPS 설정 (권장)
+- Vercel 프록시 사용 (임시 해결책)
+- 프론트엔드 환경 변수를 HTTPS URL로 변경
+
+### 환경 변수가 로드되지 않음
+
+**증상**: 환경 변수 설정 후에도 적용되지 않음
+
+**해결책**:
+- 환경 변수 이름 확인 (대소문자 구분)
+- `.env` 파일이 올바른 위치에 있는지 확인
+- 환경 변수 로드 순서 확인
+- 애플리케이션 재시작
+- Vercel 배포 시 환경 변수 변경 후 재배포 필요
 
 ---
 
@@ -578,10 +806,10 @@ MIT
 
 ---
 
-## 추가 문서
+## 기여하기
 
-- [로컬 개발 환경 설정 가이드](LOCAL_DEV_SETUP.md)
-- [환경 변수 설정 가이드](medBE/ENV_VARIABLES.md)
-- [데이터베이스 스키마 가이드](medBE/src/main/resources/db/README.md)
-- [프론트엔드 개발기](medFE/TECH_BLOG.md)
+이슈나 개선 사항이 있으면 GitHub Issues를 통해 제안해주세요.
 
+## 문의
+
+프로젝트 관련 문의사항이 있으면 이슈를 등록해주세요.
