@@ -19,7 +19,7 @@ services:
     networks:
       - med-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/api/health"]
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/api/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -40,35 +40,35 @@ services:
       # - med_DB_PASSWORD=${med_DB_PASSWORD}
       # - DB_URL=${DB_URL}
       # 로컬 PostgreSQL은 application.properties에서 직접 설정됨
-      
+
       # JWT 설정
       - JWT_SECRET=${JWT_SECRET}
-      
+
       # GPT API 설정
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GPT_API_URL=${GPT_API_URL:-https://api.openai.com/v1/chat/completions}
       - GPT_MODEL=${GPT_MODEL:-gpt-4o-mini}
-      
+
       # Google Vision API 설정
       - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
-      
+
       # 의약품 DB API 설정
       - MFDS_API_URL=${MFDS_API_URL}
       - MFDS_API_KEY=${MFDS_API_KEY}
-      
+
       # 이메일 설정
       - MAIL_USERNAME=${MAIL_USERNAME}
       - MAIL_PASSWORD=${MAIL_PASSWORD}
-      
+
       # Python API 설정
       - PYTHON_API_URL=${PYTHON_API_URL:-http://python-service:8000}
-      
+
       # 콘텐츠 검증 설정
       - CONTENT_VALIDATION_ENABLED=${CONTENT_VALIDATION_ENABLED:-false}
-      
+
       # 서버 설정
       - SERVER_PORT=8080
-      
+
       # Spring Profile
       - SPRING_PROFILES_ACTIVE=prod
     volumes:
@@ -80,7 +80,7 @@ services:
     networks:
       - med-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health" ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -104,7 +104,7 @@ services:
     networks:
       - med-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -113,7 +113,7 @@ services:
 volumes:
   certbot-www:
 
+
 networks:
   med-network:
     driver: bridge
-

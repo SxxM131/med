@@ -1,4 +1,4 @@
-package com.sxxm.med;
+package com.sxxmwolf.med;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
