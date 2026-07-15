@@ -36,7 +36,7 @@ Med는 사용자의 알러지 정보와 복용 경험을 기반으로 안전한 
 │  localhost:8080 │
 └──────┬──────┘
        │
-       ├──► PostgreSQL (로컬 또는 AWS RDS)
+       ├──► PostgreSQL (로컬 또는 Supabase)
        │
        └──► Python FastAPI (분석 서비스)
             localhost:8000
@@ -127,8 +127,9 @@ Med는 사용자의 알러지 정보와 복용 경험을 기반으로 안전한 
 - **데이터 검증**: Pydantic
 
 ### Database
-- **PostgreSQL** (로컬 또는 AWS RDS)
-- **현재 연결**: 로컬 PostgreSQL (`localhost:5432/localMED_DB`)
+- **PostgreSQL** (로컬 또는 Supabase 관리형)
+- **접속 방식**: 환경변수 `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` (하드코딩 없음)
+- **로컬 개발**: 로컬 DB와 Supabase 둘 다 가능 — `DB_URL`만 바꾸면 됩니다
 
 ---
 
@@ -239,39 +240,41 @@ med/
 
 ### 1. 데이터베이스 설정
 
+로컬 PostgreSQL과 Supabase를 **둘 다** 사용할 수 있습니다. properties에 값을 넣지 말고, `DB_URL`만 바꾸면 됩니다.  
+자세한 Supabase 절차는 [`medBE/README.md`](./medBE/README.md)를 참고하세요.
+
 #### 로컬 PostgreSQL 사용
 
 ```bash
-# PostgreSQL 접속
-psql -U postgres
+# 스크립트로 DB/유저 생성 (선택)
+./medBE/scripts/setup-local-db.sh
 
-# 데이터베이스 생성
-CREATE DATABASE localMED_DB;
-
-# 사용자 생성 (선택적)
-CREATE USER sxxm WITH PASSWORD 'sxxmpass';
-GRANT ALL PRIVILEGES ON DATABASE localMED_DB TO sxxm;
-
-# 스키마 실행
-\c localMED_DB
-\i medBE/src/main/resources/db/schema.sql
-```
-
-또는 명령줄에서 직접 실행:
-
-```bash
+# 또는 수동
+psql -U postgres -c 'CREATE DATABASE "localMED_DB";'
 psql -U postgres -d localMED_DB -f medBE/src/main/resources/db/schema.sql
 ```
 
-#### AWS RDS 사용
+환경 변수 예:
 
-`medBE/src/main/resources/application.properties`에서 RDS 설정 주석을 해제하고 로컬 설정을 주석 처리하세요.
-
-환경 변수 설정:
 ```bash
-export med_DB_USERNAME=your_rds_username
-export med_DB_PASSWORD=your_rds_password
+export DB_URL=jdbc:postgresql://localhost:5432/localMED_DB
+export DB_USERNAME=sxxm
+export DB_PASSWORD=your_local_password
 ```
+
+#### Supabase 사용
+
+1. [Supabase](https://supabase.com)에서 프로젝트 생성  
+2. **Project Settings → Database**에서 Direct connection 정보 확인  
+3. 환경변수 등록:
+
+```bash
+export DB_URL=jdbc:postgresql://db.<project-ref>.supabase.co:5432/postgres
+export DB_USERNAME=postgres
+export DB_PASSWORD=your_supabase_db_password
+```
+
+4. SQL Editor 또는 `psql`로 `medBE/src/main/resources/db/schema.sql` 적용  
 
 ### 2. Python 분석 서비스 실행
 
@@ -309,15 +312,14 @@ Python 서비스는 `http://localhost:8000`에서 실행됩니다.
 ```bash
 cd medBE
 
-# 환경 변수 설정 (필수)
+# 환경 변수 설정 (필수) — 또는 cp .env.example .env 후 source
+export DB_URL=jdbc:postgresql://localhost:5432/localMED_DB
+export DB_USERNAME=sxxm
+export DB_PASSWORD=your_db_password
 export JWT_SECRET=your_jwt_secret_key_minimum_256_bits
 export OPENAI_API_KEY=your_openai_api_key
 export GOOGLE_APPLICATION_CREDENTIALS=/path/to/google-credentials.json
 export PYTHON_API_URL=http://localhost:8000
-
-# 데이터베이스 환경 변수 (RDS 사용 시)
-export med_DB_USERNAME=your_rds_username
-export med_DB_PASSWORD=your_rds_password
 
 # Gradle로 실행
 ./gradlew bootRun
@@ -355,40 +357,36 @@ Vite 프록시 설정으로 인해 `/api` 요청은 자동으로 백엔드(`loca
 
 ### 백엔드 환경 변수
 
+전체 키 목록은 [`medBE/.env.example`](./medBE/.env.example)를 기준으로 하세요.
+
 #### 필수 환경 변수
 
 ```bash
+# Database (로컬 또는 Supabase — DB_URL만 교체)
+DB_URL=jdbc:postgresql://localhost:5432/localMED_DB
+DB_USERNAME=sxxm
+DB_PASSWORD=your_db_password
+
 # JWT 시크릿 키 (최소 256비트 권장)
 # 생성 방법: openssl rand -base64 32
 JWT_SECRET=your_jwt_secret_key_minimum_256_bits_here
 
 # OpenAI GPT API
 OPENAI_API_KEY=sk-your_openai_api_key_here
-GPT_API_URL=https://api.openai.com/v1/chat/completions
-GPT_MODEL=gpt-4o-mini
-
-# Google Vision API
-GOOGLE_APPLICATION_CREDENTIALS=/path/to/google-credentials.json
-
-# Python API 서비스
-PYTHON_API_URL=http://localhost:8000
 ```
 
 #### 선택적 환경 변수
 
 ```bash
-# 데이터베이스 (로컬 사용 시 application.properties에서 직접 설정 가능)
-med_DB_USERNAME=sxxm
-med_DB_PASSWORD=sxxmpass
-
-# 이메일 설정 (Gmail SMTP)
+GPT_API_URL=https://api.openai.com/v1/chat/completions
+GPT_MODEL=gpt-4o-mini
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/google-credentials.json
+PYTHON_API_URL=http://localhost:8000
+MFDS_API_URL=
+MFDS_API_KEY=
 MAIL_USERNAME=your_email@gmail.com
 MAIL_PASSWORD=your_app_password
-
-# 서버 포트 (기본값: 8080)
 SERVER_PORT=8080
-
-# 콘텐츠 검증 (기본값: false)
 CONTENT_VALIDATION_ENABLED=false
 ```
 
@@ -408,16 +406,11 @@ $env:OPENAI_API_KEY="your_openai_key"
 
 **방법 2: .env 파일 사용**
 ```bash
-# .env 파일 생성
-cat > .env << EOF
-JWT_SECRET=your_jwt_secret
-OPENAI_API_KEY=your_openai_key
-GOOGLE_APPLICATION_CREDENTIALS=/path/to/google-credentials.json
-PYTHON_API_URL=http://localhost:8000
-EOF
+cd medBE
+cp .env.example .env
+# .env에 DB_URL, DB_USERNAME, DB_PASSWORD, JWT_SECRET 등 채우기
 
-# 환경 변수 로드하여 실행
-source .env
+set -a && source .env && set +a
 ./gradlew bootRun
 ```
 
@@ -460,13 +453,12 @@ GPT_MODEL=gpt-4o-mini
 
 ## 데이터베이스 설정
 
-### 현재 연결 정보
+### 연결 방식
 
-- **데이터베이스**: PostgreSQL
-- **호스트**: localhost:5432
-- **데이터베이스명**: `localMED_DB`
-- **사용자명**: `sxxm`
-- **비밀번호**: `sxxmpass`
+- **엔진**: PostgreSQL (로컬 또는 Supabase)
+- **설정**: `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` 환경변수
+- **로컬 개발**: 로컬 DB 또는 Supabase 모두 가능 — `DB_URL`만 바꾸면 됩니다
+- **상세 가이드**: [`medBE/README.md`](./medBE/README.md) (Supabase Direct connection 절차)
 
 ### 주요 테이블
 
@@ -582,19 +574,20 @@ FastAPI 자동 생성 문서:
 
 ### 로컬 개발 환경
 
-현재 프로젝트는 로컬 개발 환경으로 설정되어 있습니다:
+로컬 개발 시 참고:
 
-- **데이터베이스**: 로컬 PostgreSQL (`localhost:5432/localMED_DB`)
-- **CORS**: 로컬 도메인만 허용 (`localhost`, `127.0.0.1`)
+- **데이터베이스**: `DB_URL`로 로컬 PostgreSQL 또는 Supabase 지정
+- **CORS**: `localhost`, `127.0.0.1`, `*.vercel.app` 등 (`CorsConfig.java`)
 - **API 프록시**: Vite 프록시 사용
 
 ### 프로덕션 배포
 
 #### 백엔드 배포
 
-**1. AWS RDS 설정**
-   - `application.properties`에서 RDS 설정 주석 해제
-   - 환경 변수 설정: `med_DB_USERNAME`, `med_DB_PASSWORD`
+**1. Supabase 설정**
+   - Supabase 프로젝트 생성 후 Direct connection으로 `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` 등록
+   - 스키마(`schema.sql`) 적용
+   - 상세: [`medBE/README.md`](./medBE/README.md)
 
 **2. Docker 배포**
    ```bash
@@ -603,8 +596,8 @@ FastAPI 자동 생성 문서:
    docker run -p 8080:8080 --env-file .env med-backend
    ```
 
-**3. AWS Elastic Beanstalk / ECS**
-   - 환경 변수를 플랫폼에 설정
+**3. 클라우드(ECS 등) 배포**
+   - `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET` 등 동일 환경변수를 플랫폼에 설정
    - Docker 이미지 또는 JAR 파일 배포
 
 #### 프론트엔드 배포 (Vercel)
@@ -744,10 +737,9 @@ VITE_API_BASE_URL=https://api.yourdomain.com
 **증상**: 백엔드 시작 시 데이터베이스 연결 오류
 
 **해결책**:
-- PostgreSQL이 실행 중인지 확인
-- `application.properties`의 데이터베이스 URL 확인
-- 환경 변수 `med_DB_USERNAME`, `med_DB_PASSWORD` 확인
-- AWS RDS 사용 시 Security Group 설정 확인
+- `DB_URL` / `DB_USERNAME` / `DB_PASSWORD`가 설정·주입되었는지 확인
+- 로컬 사용 시 PostgreSQL 기동 여부 확인 (`./medBE/scripts/setup-local-db.sh`)
+- Supabase 사용 시 Direct host·포트(5432)·비밀번호·스키마 적용 여부 확인
 
 ### API 프록시가 작동하지 않음
 

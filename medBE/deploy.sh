@@ -30,8 +30,9 @@ check_env_variables() {
     log_info "환경 변수 확인 중..."
     
     local required_vars=(
-        "med_DB_USERNAME"
-        "med_DB_PASSWORD"
+        "DB_URL"
+        "DB_USERNAME"
+        "DB_PASSWORD"
         "JWT_SECRET"
         "OPENAI_API_KEY"
     )
