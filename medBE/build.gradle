@@ -59,6 +59,11 @@ tasks.named('test') {
 	useJUnitPlatform()
 }
 
+// Docker COPY 시 *-plain.jar와 실행 JAR가 동시에 생기지 않도록
+tasks.named('jar') {
+	enabled = false
+}
+
 // bootRun 태스크에 환경변수 전달
 tasks.named('bootRun') {
 	environment = System.getenv()
