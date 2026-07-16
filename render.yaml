@@ -1,0 +1,43 @@
+# Render Blueprint — medBE (Docker Web Service)
+# 저장소 루트에 두고 Blueprint로 배포합니다.
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: med-backend
+    runtime: docker
+    plan: free
+    dockerfilePath: ./medBE/Dockerfile
+    dockerContext: ./medBE
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: DB_URL
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GPT_API_URL
+        sync: false
+      - key: GPT_MODEL
+        sync: false
+      - key: GOOGLE_APPLICATION_CREDENTIALS
+        sync: false
+      - key: MFDS_API_URL
+        sync: false
+      - key: MFDS_API_KEY
+        sync: false
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: PYTHON_API_URL
+        sync: false
+      - key: CONTENT_VALIDATION_ENABLED
+        sync: false
